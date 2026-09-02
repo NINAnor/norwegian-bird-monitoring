@@ -40,6 +40,7 @@ The database structure and data flow are described in:
 Vang, R. et al. 2023. *Norsk hekkefuglovervåking systemdokumentasjon*.
 NINA Report 2230.
 
-## Licence
+## License
 
-See the `LICENSE` file.
+NINA-managed code in this repository is licensed under the MIT License.
+See [LICENSE](LICENSE) for details.
