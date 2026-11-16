@@ -87,18 +87,40 @@ DECLARE @CurrentYear SMALLINT,
         @PreviousYear SMALLINT,
         @Sql NVARCHAR(MAX);
 
-SET @CurrentYear = 2025;
+SET @CurrentYear = 2026;
 SET @PreviousYear = @CurrentYear - 1;
 
 
---2. Lag snapshot av tabellene fra forrige års produksjonsgrunnlag.
---   SELECT INTO kopierer data og kolonnestruktur, men ikke indekser/constraints.
---   Scriptet stopper dersom snapshot-tabellen allerede finnes.
-SET @Sql = N'SELECT * INTO [dbo].[TrimResults_' + CONVERT(nvarchar(4), @PreviousYear) + N'] FROM [dbo].[TrimResults];';
-EXEC sys.sp_executesql @Sql;
+-- 2. Bevar snapshot av forrige års produksjonsgrunnlag.
+-- Opprettes bare ved første kjøring. Eksisterende snapshot-tabeller
+-- beholdes uendret ved omkjøring.
+-- SELECT INTO kopierer data og kolonnestruktur, men ikke indekser/constraints.
 
-SET @Sql = N'SELECT * INTO [dbo].[TrimSites_' + CONVERT(nvarchar(4), @PreviousYear) + N'] FROM [dbo].[TrimSites];';
-EXEC sys.sp_executesql @Sql;
+    IF OBJECT_ID(
+        N'dbo.TrimResults_' + CONVERT(nvarchar(4), @PreviousYear),
+        N'U'
+    ) IS NULL
+    BEGIN
+        SET @Sql =
+            N'SELECT * INTO [dbo].[TrimResults_'
+            + CONVERT(nvarchar(4), @PreviousYear)
+            + N'] FROM [dbo].[TrimResults];';
+
+        EXEC sys.sp_executesql @Sql;
+    END;
+
+    IF OBJECT_ID(
+        N'dbo.TrimSites_' + CONVERT(nvarchar(4), @PreviousYear),
+        N'U'
+    ) IS NULL
+    BEGIN
+        SET @Sql =
+            N'SELECT * INTO [dbo].[TrimSites_'
+            + CONVERT(nvarchar(4), @PreviousYear)
+            + N'] FROM [dbo].[TrimSites];';
+
+        EXEC sys.sp_executesql @Sql;
+    END;
 
   
 
@@ -140,24 +162,25 @@ FROM         RuteVerifisertStatus INNER JOIN
 
 ---------------------------------------------------------------------
 --7.Første år besøkt inkluderes ikke, men alle år deretter med godkjente verdier for kvalitetssikring inkluderes. 
-declare @ID int
-declare @Year smallint
-declare @ForsteAar smallint
+-- Erstatter cursoren med en samlet UPDATE for å redusere kjøretiden.
+-- Første takseringsår beregnes per rute i stedet for per rad i TrimSites.
+-- Eksisterende logikk beholdes: Taksering settes til -1 for første registrerte takseringsår og tidligere år. 
+-- Manglende år erstattes med @CurrentYear. 
 
-DECLARE first_year_cursor CURSOR LOCAL FAST_FORWARD FOR SELECT ID, RuteID, [Year] FROM TrimSites 
-OPEN first_year_cursor
-FETCH first_year_cursor INTO @ID, @RuteID, @Year
-WHILE @@FETCH_STATUS = 0
-	BEGIN	
-		select @ForsteAar = isnull(min(Aar),@CurrentYear) FROM PunktTaksering_Normalisert  where fk_ruteid=@RuteID
-	
-		if @ForsteAar >= @Year
-		update TRIMSites set Taksering = -1 where ID = @Id 
-	
-	FETCH first_year_cursor INTO @ID, @RuteID, @Year
-	END
-CLOSE first_year_cursor
-DEALLOCATE first_year_cursor
+;WITH ForsteTakseringsaar AS
+(
+    SELECT
+        FK_RuteID,
+        MIN(Aar) AS ForsteAar
+    FROM dbo.PunktTaksering_Normalisert
+    GROUP BY FK_RuteID
+)
+UPDATE S
+        SET S.Taksering = -1
+        FROM dbo.TrimSites AS S
+        LEFT JOIN ForsteTakseringsaar AS F
+            ON F.FK_RuteID = S.RuteID
+        WHERE ISNULL(F.ForsteAar, @CurrentYear) >= S.[Year];
 
 
 
