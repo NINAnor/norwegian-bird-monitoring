@@ -20,20 +20,29 @@ IPT remains the source of record for scientific metadata (EML), the published ar
 ## 2. Data flow and annual preparation
 
 ```mermaid
+---
+config:
+  htmlLabels: false
+  flowchart:
+    padding: 20
+    wrappingWidth: 350
+    nodeSpacing: 50
+    rankSpacing: 40
+---
 flowchart TD
-    A[Field observations] --> B[Operational database: TOVTaksering]
-    B --> C[Regional and central quality control]
-    C --> D[prepare-analysis-data.sql]
-    D --> E[TrimResults]
-    E --> F[vwDwC_Occurrence]
+    A["Field observations"] --> B["Operational database: TOVTaksering"]
+    B --> C["Regional and central quality control"]
+    C --> D["prepare-analysis-data.sql"]
+    D --> E["TrimResults"]
+    E --> F["vwDwC_Occurrence"]
     B --> F
-    B --> G[vwDwC_Events]
+    B --> G["vwDwC_Events"]
     F --> G
-    G --> H[IPT Event Core]
-    F --> I[IPT Occurrence extension]
-    H --> J[GBIF]
+    G --> H["IPT Event Core"]
+    F --> I["IPT Occurrence extension"]
+    H --> J["GBIF"]
     I --> J
-    J --> K[Artskart / Living Norway]
+    J --> K["Artskart / Living Norway"]
 ```
 
 The annual preparation script, [`sql/prepare-analysis-data.sql`](../sql/prepare-analysis-data.sql), prepares the analysis and export tables `TrimSites` and `TrimResults` after quality control. The script defines eligible route-years and prepares route-year-species counts, including point counts, relevant line counts and species-specific flock conversion. Flocks contribute the rounded-up flock size divided by five or two, or zero, according to the species-specific flock code. The analysis script contains additional inclusion rules and internal missing-data conventions; refer to the revision actually used for the annual delivery.
